@@ -73,6 +73,8 @@ Re-running overwrites the workflow’s outputs.
 | `results/session_info.txt` | R, platform and loaded package versions |
 | `figures/boxplots_by_year.png` | Boxplots across regions within each year, faceted by variable |
 | `figures/boxplots_by_region.png` | Boxplots across years within each region, faceted by variable |
+| `figures/trends_by_region.png` | Line plot of each variable's annual values, one line per region, faceted by variable |
+| `figures/breeding_funnel_by_region.png` | Bar chart of the five count variables' regional means, one panel per region |
 
 Summaries include total, observed and missing counts, mean, sample standard
 deviation, median, first and third quartiles, minimum and maximum. Missing values
@@ -108,6 +110,17 @@ region boxes summarise five years. These are small samples of regional annual
 aggregates, with repeated observations of the same regions and unequal territory
 counts. Means weight each regional or annual value equally and are not pooled
 demographic rates. No significance tests or causal claims are made.
+
+`trends_by_region.png` plots the same values as connected lines, one per region,
+so a region's own year-to-year trajectory is visible directly rather than only
+its position within each year's spread. Gaps in a line mark missing measurements.
+
+`breeding_funnel_by_region.png` shows only the five count variables, which share
+one unit and are stages of the same funnel (territories seen, occupied, laying
+eggs, succeeding, producing fledglings). Bars are the mean of each region's five
+annual counts; see `summary_by_region_variable.csv` for the underlying spread.
+Ratio variables are excluded from this figure to keep counts and proportions
+separate, as elsewhere in this workflow.
 
 For reproduction elsewhere, retain the workbook and scripts, compare the input
 checksum, and use `session_info.txt` to match package versions. Versions are

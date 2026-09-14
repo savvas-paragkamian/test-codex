@@ -35,27 +35,64 @@ readr::write_csv(summarise_values(long, c("year", "region")),
 # Each facet has its own scale because counts and ratios have different units.
 plot_data <- long |>
   filter(!is.na(value)) |>
-  mutate(year = factor(year),
-         label = paste(gsub("_", " ", variable), unit, sep = "\n"))
+  mutate(label = paste(gsub("_", " ", variable), unit, sep = "\n"))
 common_theme <- theme_bw(base_size = 10) +
   theme(axis.text.x = element_text(angle = 35, hjust = 1),
         strip.text = element_text(size = 8), legend.position = "bottom")
 
-by_year <- ggplot(plot_data, aes(x = year, y = value)) +
-  geom_boxplot(outlier.shape = NA, fill = "grey95") +
-  geom_point(aes(colour = region), position = position_jitter(width = 0.1, height = 0, seed = 42),
-             size = 1.8) +
-  facet_wrap(~label, scales = "free_y", ncol = 2) + common_theme +
-  labs(title = "Reproductive measurements by year", x = "Year", y = "Value",
-       colour = "Region", caption = "Each box summarises four regional values; points show all observed values.")
-by_region <- ggplot(plot_data, aes(x = region, y = value)) +
-  geom_boxplot(outlier.shape = NA, fill = "grey95") +
-  geom_point(aes(colour = year), position = position_jitter(width = 0.1, height = 0, seed = 42),
-             size = 1.8) +
-  facet_wrap(~label, scales = "free_y", ncol = 2) + common_theme +
-  labs(title = "Reproductive measurements by region", x = "Region", y = "Value",
-       colour = "Year", caption = "Each box summarises five annual values; points show all observed values.")
+# One boxplot builder shared by the year and region views below, so the two
+# figures stay in sync instead of drifting apart as separate copies.
+make_boxplot <- function(data, x, colour, x_lab, colour_lab, title, caption) {
+  ggplot(data, aes(x = .data[[x]], y = value)) +
+    geom_boxplot(outlier.shape = NA, fill = "grey95") +
+    geom_point(aes(colour = .data[[colour]]),
+               position = position_jitter(width = 0.1, height = 0, seed = 42),
+               size = 1.8) +
+    facet_wrap(~label, scales = "free_y", ncol = 2) + common_theme +
+    labs(title = title, x = x_lab, y = "Value", colour = colour_lab, caption = caption)
+}
+
+by_year <- make_boxplot(
+  plot_data |> mutate(year = factor(year)), "year", "region",
+  "Year", "Region", "Reproductive measurements by year",
+  "Each box summarises four regional values; points show all observed values."
+)
+by_region <- make_boxplot(
+  plot_data |> mutate(year = factor(year)), "region", "year",
+  "Region", "Year", "Reproductive measurements by region",
+  "Each box summarises five annual values; points show all observed values."
+)
 ggsave("figures/boxplots_by_year.png", by_year, width = 13, height = 16, dpi = 180)
 ggsave("figures/boxplots_by_region.png", by_region, width = 13, height = 16, dpi = 180)
+
+# Trend lines complement the boxplots above by showing each region's own
+# trajectory across years, instead of the year-to-year spread across regions.
+trends <- ggplot(plot_data, aes(x = year, y = value, colour = region)) +
+  geom_line() +
+  geom_point(size = 1.8) +
+  scale_x_continuous(breaks = 2019:2023) +
+  facet_wrap(~label, scales = "free_y", ncol = 2) + common_theme +
+  labs(title = "Reproductive measurements by year, one line per region",
+       x = "Year", y = "Value", colour = "Region",
+       caption = "Lines connect each region's own annual values; gaps mark missing measurements.")
+ggsave("figures/trends_by_region.png", trends, width = 13, height = 16, dpi = 180)
+
+# The five count variables share one unit and form a breeding funnel
+# (territories -> occupied -> egg-laying pairs -> successful pairs ->
+# fledglings), so their regional means can be compared directly on one plot.
+funnel_levels <- c("n_territories", "n_occupied_territories", "n_egg_laying_pairs",
+                    "n_successful_pairs", "n_fledglings")
+funnel_data <- summarise_values(long, "region") |>
+  filter(variable %in% funnel_levels) |>
+  mutate(variable = factor(gsub("^n_", "", variable),
+                            levels = gsub("^n_", "", funnel_levels)))
+funnel <- ggplot(funnel_data, aes(x = variable, y = mean, fill = variable)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~region, ncol = 2) + common_theme +
+  labs(title = "Breeding funnel by region, mean count across years",
+       x = NULL, y = "Mean count",
+       caption = "Bars show the mean of five annual counts per region; error bars are omitted, see summary_by_region_variable.csv for spread.")
+ggsave("figures/breeding_funnel_by_region.png", funnel, width = 10, height = 8, dpi = 180)
+
 writeLines(capture.output(sessionInfo()), "results/session_info.txt")
-message("Saved four summary tables and two boxplot figures.")
+message("Saved four summary tables and four figures.")
